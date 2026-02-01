@@ -1,0 +1,88 @@
+# Stock Trading Bot Configuration
+# IMPORTANT: Review all settings before enabling live trading
+
+trading:
+  paper_mode: true  # CRITICAL: Always start with paper trading
+  symbols:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+  check_interval_seconds: 60  # How often to check for signals
+  trading_hours:
+    start: "09:30"
+    end: "16:00"
+  timezone: "America/New_York"
+
+risk:
+  max_position_pct: 0.10        # 10% max per single stock
+  max_portfolio_risk_pct: 0.30  # 30% max total exposure
+  max_daily_loss_pct: 0.02      # 2% daily circuit breaker
+  max_daily_trades: 3           # PDT rule safety (if < $25k)
+  stop_loss_pct: 0.05           # 5% hard stop loss
+  trailing_stop_pct: 0.03       # 3% trailing stop
+  min_account_balance: 1000     # Minimum to keep trading
+
+strategy:
+  name: "daily_profit_taker"
+  profit_target_pct: 0.02       # 2% take profit target
+  use_trailing_stop: true
+  rsi_oversold: 30              # RSI buy signal threshold
+  rsi_overbought: 70            # RSI sell signal threshold
+  macd_signal_threshold: 0      # MACD crossover threshold
+  bollinger_period: 20          # Bollinger Bands period
+  bollinger_std: 2              # Bollinger Bands std deviation
+
+indicators:
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  sma_short: 20
+  sma_long: 50
+  ema_period: 12
+  atr_period: 14
+
+api:
+  alpaca:
+    key: ""                     # Set via env: ALPACA_API_KEY
+    secret: ""                  # Set via env: ALPACA_SECRET_KEY
+    base_url: "https://paper-api.alpaca.markets"  # Paper trading URL
+    data_url: "https://data.alpaca.markets"
+  alpha_vantage:
+    key: ""                     # Set via env: ALPHA_VANTAGE_KEY
+    rate_limit_per_minute: 5    # Free tier limit
+
+notifications:
+  enabled: true
+  discord:
+    webhook_url: ""             # Set via env: DISCORD_WEBHOOK_URL
+    notify_on:
+      - trade_executed
+      - stop_loss_triggered
+      - daily_summary
+      - error
+  telegram:
+    bot_token: ""               # Set via env: TELEGRAM_BOT_TOKEN
+    chat_id: ""                 # Set via env: TELEGRAM_CHAT_ID
+    notify_on:
+      - trade_executed
+      - stop_loss_triggered
+      - daily_summary
+      - error
+
+database:
+  url: "sqlite:///data/trading_bot.db"
+  echo: false                   # Set true for SQL debugging
+
+logging:
+  level: "INFO"
+  file: "logs/trading_bot.log"
+  max_bytes: 10485760           # 10MB
+  backup_count: 5
+
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  refresh_interval_seconds: 30
