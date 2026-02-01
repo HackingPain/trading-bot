@@ -393,6 +393,17 @@ class AlpacaBroker(Broker):
                     stop_price=order.stop_price,
                     client_order_id=order.client_order_id,
                 )
+            elif order.order_type == OrderType.STOP_LIMIT:
+                from alpaca.trading.requests import StopLimitOrderRequest
+                request = StopLimitOrderRequest(
+                    symbol=order.symbol,
+                    qty=order.quantity,
+                    side=side,
+                    time_in_force=tif,
+                    stop_price=order.stop_price,
+                    limit_price=order.limit_price,
+                    client_order_id=order.client_order_id,
+                )
             elif order.order_type == OrderType.TRAILING_STOP:
                 request = TrailingStopOrderRequest(
                     symbol=order.symbol,

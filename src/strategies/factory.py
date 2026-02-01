@@ -11,6 +11,8 @@ from .base import Strategy
 from .daily_profit_taker import DailyProfitTakerStrategy
 from .mean_reversion import MeanReversionStrategy
 from .momentum import MomentumStrategy
+from .breakout import BreakoutStrategy
+from .pairs_trading import PairsTradingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,8 @@ STRATEGY_REGISTRY: dict[str, Type[Strategy]] = {
     "daily_profit_taker": DailyProfitTakerStrategy,
     "mean_reversion": MeanReversionStrategy,
     "momentum": MomentumStrategy,
+    "breakout": BreakoutStrategy,
+    "pairs_trading": PairsTradingStrategy,
 }
 
 

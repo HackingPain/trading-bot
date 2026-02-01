@@ -5,6 +5,8 @@ from .indicators import TechnicalIndicators
 from .daily_profit_taker import DailyProfitTakerStrategy
 from .mean_reversion import MeanReversionStrategy
 from .momentum import MomentumStrategy
+from .breakout import BreakoutStrategy
+from .pairs_trading import PairsTradingStrategy
 from .factory import (
     get_strategy,
     get_strategy_from_settings,
@@ -26,6 +28,8 @@ __all__ = [
     "DailyProfitTakerStrategy",
     "MeanReversionStrategy",
     "MomentumStrategy",
+    "BreakoutStrategy",
+    "PairsTradingStrategy",
     # Factory
     "get_strategy",
     "get_strategy_from_settings",
