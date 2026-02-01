@@ -25,6 +25,7 @@ from src.database.models import (
     init_db,
     get_session,
 )
+from src.backtest.metrics import PerformanceMetrics, calculate_metrics, calculate_daily_metrics
 
 # Page configuration
 st.set_page_config(
@@ -431,6 +432,168 @@ def render_signals(signals_df: pd.DataFrame):
     )
 
 
+def render_analytics(trades_df: pd.DataFrame, daily_df: pd.DataFrame):
+    """Render advanced analytics section."""
+    st.subheader("📊 Performance Analytics")
+
+    if daily_df.empty and trades_df.empty:
+        st.info("Not enough data for analytics. Start trading to see metrics.")
+        return
+
+    # Create two columns for metrics
+    col1, col2 = st.columns(2)
+
+    # Calculate metrics from trades
+    sell_trades = trades_df[trades_df["side"] == "sell"] if not trades_df.empty else pd.DataFrame()
+
+    with col1:
+        st.markdown("### Trade Statistics")
+        if not sell_trades.empty:
+            total_trades = len(sell_trades)
+            winning = len(sell_trades[sell_trades["pnl"] > 0])
+            losing = len(sell_trades[sell_trades["pnl"] < 0])
+            win_rate = (winning / total_trades * 100) if total_trades > 0 else 0
+
+            gross_profit = sell_trades[sell_trades["pnl"] > 0]["pnl"].sum()
+            gross_loss = abs(sell_trades[sell_trades["pnl"] < 0]["pnl"].sum())
+            profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float('inf')
+
+            avg_win = sell_trades[sell_trades["pnl"] > 0]["pnl"].mean() if winning > 0 else 0
+            avg_loss = sell_trades[sell_trades["pnl"] < 0]["pnl"].mean() if losing > 0 else 0
+
+            st.metric("Total Trades", total_trades)
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+            st.metric("Profit Factor", f"{profit_factor:.2f}" if profit_factor != float('inf') else "∞")
+            st.metric("Avg Winner", f"${avg_win:,.2f}")
+            st.metric("Avg Loser", f"${avg_loss:,.2f}")
+        else:
+            st.write("No completed trades yet")
+
+    with col2:
+        st.markdown("### P&L Breakdown")
+        if not sell_trades.empty:
+            total_pnl = sell_trades["pnl"].sum()
+            max_win = sell_trades["pnl"].max()
+            max_loss = sell_trades["pnl"].min()
+
+            # Calculate expectancy
+            if len(sell_trades) > 0:
+                expectancy = sell_trades["pnl"].mean()
+            else:
+                expectancy = 0
+
+            st.metric("Net P&L", f"${total_pnl:,.2f}")
+            st.metric("Best Trade", f"${max_win:,.2f}")
+            st.metric("Worst Trade", f"${max_loss:,.2f}")
+            st.metric("Expectancy", f"${expectancy:,.2f}")
+            st.metric("Gross Profit", f"${gross_profit:,.2f}")
+            st.metric("Gross Loss", f"${gross_loss:,.2f}")
+        else:
+            st.write("No P&L data yet")
+
+    # Monthly returns chart
+    st.markdown("### Monthly Returns")
+    if not daily_df.empty:
+        daily_df_copy = daily_df.copy()
+        daily_df_copy["month"] = pd.to_datetime(daily_df_copy["date"]).dt.to_period("M").astype(str)
+        monthly_pnl = daily_df_copy.groupby("month")["total_pnl"].sum().reset_index()
+
+        if not monthly_pnl.empty:
+            fig = go.Figure()
+            colors = ["#00C853" if x >= 0 else "#FF5252" for x in monthly_pnl["total_pnl"]]
+            fig.add_trace(go.Bar(
+                x=monthly_pnl["month"],
+                y=monthly_pnl["total_pnl"],
+                marker_color=colors,
+                text=[f"${x:,.0f}" for x in monthly_pnl["total_pnl"]],
+                textposition="outside",
+            ))
+            fig.update_layout(
+                title="Monthly P&L",
+                xaxis_title="Month",
+                yaxis_title="P&L ($)",
+                showlegend=False,
+                margin=dict(l=0, r=0, t=40, b=0),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No monthly data available")
+
+    # Symbol performance breakdown
+    st.markdown("### Performance by Symbol")
+    if not sell_trades.empty:
+        symbol_stats = sell_trades.groupby("symbol").agg({
+            "pnl": ["sum", "count", "mean"],
+        }).reset_index()
+        symbol_stats.columns = ["Symbol", "Total P&L", "Trades", "Avg P&L"]
+
+        # Calculate win rate per symbol
+        def calc_win_rate(group):
+            wins = (group["pnl"] > 0).sum()
+            total = len(group)
+            return (wins / total * 100) if total > 0 else 0
+
+        win_rates = sell_trades.groupby("symbol").apply(calc_win_rate).reset_index()
+        win_rates.columns = ["Symbol", "Win Rate"]
+
+        symbol_stats = symbol_stats.merge(win_rates, on="Symbol")
+        symbol_stats = symbol_stats.sort_values("Total P&L", ascending=False)
+
+        # Format for display
+        symbol_stats["Total P&L"] = symbol_stats["Total P&L"].apply(lambda x: f"${x:,.2f}")
+        symbol_stats["Avg P&L"] = symbol_stats["Avg P&L"].apply(lambda x: f"${x:,.2f}")
+        symbol_stats["Win Rate"] = symbol_stats["Win Rate"].apply(lambda x: f"{x:.1f}%")
+
+        st.dataframe(symbol_stats, use_container_width=True, hide_index=True)
+    else:
+        st.info("No symbol data available")
+
+    # Drawdown chart
+    st.markdown("### Equity Curve & Drawdown")
+    if not daily_df.empty and "ending_balance" in daily_df.columns:
+        equity = daily_df.set_index("date")["ending_balance"]
+        rolling_max = equity.cummax()
+        drawdown = ((equity - rolling_max) / rolling_max) * 100
+
+        fig = go.Figure()
+
+        # Equity curve
+        fig.add_trace(go.Scatter(
+            x=equity.index,
+            y=equity.values,
+            mode="lines",
+            name="Equity",
+            line=dict(color="#2196F3", width=2),
+        ))
+
+        # Drawdown
+        fig.add_trace(go.Scatter(
+            x=drawdown.index,
+            y=drawdown.values,
+            mode="lines",
+            name="Drawdown %",
+            fill="tozeroy",
+            line=dict(color="#FF5252", width=1),
+            yaxis="y2",
+        ))
+
+        fig.update_layout(
+            title="Equity Curve with Drawdown",
+            yaxis=dict(title="Equity ($)", side="left"),
+            yaxis2=dict(title="Drawdown (%)", side="right", overlaying="y", range=[-50, 5]),
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            margin=dict(l=0, r=0, t=40, b=0),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Max drawdown stat
+        max_dd = drawdown.min()
+        st.metric("Maximum Drawdown", f"{max_dd:.2f}%")
+    else:
+        st.info("No equity data available for drawdown analysis")
+
+
 def render_sidebar():
     """Render sidebar with settings and info."""
     with st.sidebar:
@@ -492,8 +655,8 @@ def main():
     st.divider()
 
     # Main content tabs
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📊 Positions", "📜 Trades", "📈 Performance", "🎯 Signals"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📊 Positions", "📜 Trades", "📈 Performance", "🎯 Signals", "📉 Analytics"]
     )
 
     with tab1:
@@ -507,6 +670,9 @@ def main():
 
     with tab4:
         render_signals(signals_df)
+
+    with tab5:
+        render_analytics(trades_df, daily_df)
 
 
 if __name__ == "__main__":
