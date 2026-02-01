@@ -1,256 +1,211 @@
-# Stock Trading Bot
+# 📈 Stock Trading Bot
 
-A modular personal stock trading bot built in Python 3.10+ with paper trading support, risk management, and real-time monitoring.
+An automated stock trading bot with paper trading support, multiple strategies, and a web dashboard.
 
-## Features
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-- **Paper Trading**: Test strategies without risking real money
-- **Multiple Data Sources**: yfinance for historical data, Alpha Vantage for real-time quotes
-- **Technical Indicators**: RSI, MACD, Bollinger Bands, SMA/EMA, ATR, and more
-- **Risk Management**: Circuit breakers, position limits, PDT compliance, stop-losses
-- **Broker Integration**: Alpaca API support (paper and live)
-- **Notifications**: Discord and Telegram alerts
-- **Dashboard**: Streamlit-based monitoring interface
-- **Database**: SQLite for trade history and performance tracking
+---
 
-## Quick Start
+## 🚀 Quick Start (5 Minutes)
 
-### 1. Install Dependencies
+### Step 1: Download & Install
 
+**Option A: One-Command Install (Mac/Linux)**
 ```bash
-cd /root/trading-bot
-pip install -r requirements.txt
+git clone https://github.com/HackingPain/trading-bot.git && cd trading-bot && ./install.sh
 ```
 
-### 2. Configure API Keys
+**Option B: Windows**
+1. Download this repository (Code → Download ZIP)
+2. Extract the ZIP file
+3. Open Command Prompt in the folder
+4. Run: `python scripts/setup.py`
 
-Edit `config/settings.yaml` or set environment variables:
+### Step 2: Get Your FREE API Keys
 
-```bash
-export ALPACA_API_KEY="your_alpaca_key"
-export ALPACA_SECRET_KEY="your_alpaca_secret"
-export ALPHA_VANTAGE_KEY="your_alpha_vantage_key"  # Optional
-export DISCORD_WEBHOOK_URL="your_discord_webhook"  # Optional
-export TELEGRAM_BOT_TOKEN="your_telegram_token"    # Optional
-export TELEGRAM_CHAT_ID="your_chat_id"             # Optional
-```
+1. Go to **[Alpaca Markets](https://app.alpaca.markets/signup)** (completely free!)
+2. Create an account (takes 2 minutes)
+3. Navigate to **Paper Trading** → **API Keys**
+4. Click **Generate New Keys**
+5. Copy your API Key and Secret Key
 
-### 3. Run in Paper Mode
-
-```bash
-# Single cycle test
-python -m src.bot --once
-
-# Start trading bot
-python -m src.bot
-
-# Test notifications
-python -m src.bot --test-notifications
-```
-
-### 4. Run Backtest
+### Step 3: Start the Bot
 
 ```bash
-# Basic backtest
-python -m src.cli.backtest -s AAPL MSFT GOOGL
-
-# Custom date range and parameters
-python -m src.cli.backtest -s AAPL --start 2023-01-01 --end 2024-01-01 -v
+./start.sh
 ```
 
-### 5. View Dashboard
+This opens an **interactive menu** where you can:
+- ✅ Configure your API keys
+- ✅ Start the trading bot
+- ✅ Open the web dashboard
+- ✅ Run backtests
+
+---
+
+## ✨ What Can It Do?
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 **Automated Trading** | Runs on autopilot, buys and sells based on signals |
+| 📊 **Web Dashboard** | Beautiful interface to monitor your trades |
+| 📈 **5 Strategies** | RSI/MACD, Mean Reversion, Momentum, Breakout, Pairs |
+| 🛡️ **Risk Protection** | Stop-losses, position limits, daily loss limits |
+| 📉 **Backtesting** | Test strategies on historical data before using real money |
+| 🔔 **Notifications** | Get alerts via Discord, Telegram, or Email |
+| 💼 **Paper Trading** | Practice with fake money first (this is the default!) |
+
+---
+
+## 🎮 How to Use
+
+### Option 1: Interactive Menu (Recommended)
+```bash
+./start.sh
+```
+Just follow the on-screen prompts!
+
+### Option 2: Direct Commands
+```bash
+./start.sh run          # Start trading bot
+./start.sh dashboard    # Open web dashboard
+./start.sh backtest     # Run backtest wizard
+./start.sh test         # Run single test cycle
+```
+
+---
+
+## 📊 Web Dashboard
+
+See your trades, profits, and performance in real-time:
 
 ```bash
-streamlit run src/dashboard/app.py
+./start.sh dashboard
 ```
 
-Then open http://localhost:8501 in your browser.
+Then open **http://localhost:8501** in your browser.
 
-## Docker Deployment
+The dashboard shows:
+- 💰 Total P&L and win rate
+- 📈 Performance charts
+- 📋 Trade history
+- 🎯 Active signals
+- 📉 Drawdown analysis
 
-```bash
-# Build and run all services
-docker compose up -d
+---
 
-# View logs
-docker compose logs -f
+## ⚙️ Configuration
 
-# Stop
-docker compose down
-```
-
-## Configuration
-
-All settings are in `config/settings.yaml`:
+### Basic Settings
+Edit `config/settings.yaml` to customize:
 
 ```yaml
 trading:
-  paper_mode: true         # ALWAYS start with paper trading
+  paper_mode: true           # Keep TRUE until ready for real money!
   symbols:
     - AAPL
     - MSFT
     - GOOGL
-  check_interval_seconds: 60
-
-risk:
-  max_position_pct: 0.10   # 10% max per position
-  max_daily_loss_pct: 0.02 # 2% daily circuit breaker
-  stop_loss_pct: 0.05      # 5% stop loss
-  trailing_stop_pct: 0.03  # 3% trailing stop
-  max_daily_trades: 3      # PDT rule safety
 
 strategy:
-  profit_target_pct: 0.02  # 2% take profit
-  rsi_oversold: 30
-  rsi_overbought: 70
+  name: daily_profit_taker   # Choose your strategy
+  profit_target_pct: 0.02    # Take profits at 2% gain
+
+risk:
+  max_position_pct: 0.10     # Max 10% in any single stock
+  max_daily_loss_pct: 0.02   # Stop if down 2% for the day
+  stop_loss_pct: 0.05        # Exit if a trade loses 5%
 ```
 
-## Project Structure
+### Available Strategies
+
+| Strategy | Best For | Description |
+|----------|----------|-------------|
+| `daily_profit_taker` | Beginners | Uses RSI & MACD signals, takes quick profits |
+| `mean_reversion` | Sideways markets | Buys oversold stocks, sells when they recover |
+| `momentum` | Trending markets | Follows strong price trends |
+| `breakout` | Volatile stocks | Buys when price breaks resistance |
+| `pairs_trading` | Advanced | Trades correlated stock pairs |
+
+---
+
+## 🛡️ Safety Features
+
+Your money is protected by multiple safety systems:
+
+1. **📋 Paper Trading Mode** - Uses fake money by default
+2. **🚨 Daily Loss Limit** - Stops trading if you lose too much in one day
+3. **📊 Position Limits** - Never puts too much in one stock
+4. **🛑 Stop-Losses** - Automatically exits losing trades
+5. **⚖️ PDT Protection** - Follows Pattern Day Trader rules
+
+---
+
+## ❓ Troubleshooting
+
+### "API keys not configured"
+Run `./start.sh` and select option **6** to set up your API keys.
+
+### "Python not found"
+Install Python 3.10 or higher:
+- **Mac**: `brew install python@3.11`
+- **Ubuntu/Debian**: `sudo apt install python3.11`
+- **Windows**: Download from [python.org](https://www.python.org/downloads/)
+
+### "Module not found" errors
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Bot not trading
+1. Check if the market is open (9:30 AM - 4:00 PM ET, Mon-Fri)
+2. Verify your API keys are correct
+3. Check `logs/trading_bot.log` for errors
+
+---
+
+## 📁 File Structure
 
 ```
 trading-bot/
-├── src/
-│   ├── bot.py                    # Main orchestrator
-│   ├── data/
-│   │   └── market_data.py        # Data fetching
-│   ├── strategies/
-│   │   ├── base.py               # Strategy interface
-│   │   ├── daily_profit_taker.py # Main strategy
-│   │   └── indicators.py         # Technical indicators
-│   ├── risk/
-│   │   └── risk_manager.py       # Risk checks
-│   ├── execution/
-│   │   └── broker.py             # Broker abstraction
-│   ├── database/
-│   │   └── models.py             # SQLAlchemy models
-│   ├── notifications/
-│   │   └── alerts.py             # Discord/Telegram
-│   └── dashboard/
-│       └── app.py                # Streamlit dashboard
+├── start.sh              # 👈 START HERE - Interactive launcher
+├── install.sh            # One-click installer
 ├── config/
-│   └── settings.yaml             # Configuration
-├── tests/                        # Unit tests
-├── logs/                         # Runtime logs
-└── data/                         # SQLite database
+│   └── settings.yaml     # ⚙️ Your settings (edit this)
+├── src/                  # Source code (don't touch unless developing)
+├── data/                 # Trade database
+└── logs/                 # Log files
 ```
 
-## Trading Strategy
+---
 
-The default **Daily Profit Taker** strategy:
+## ⚠️ Important Disclaimer
 
-### Entry Conditions (BUY)
-- RSI below oversold threshold (30)
-- MACD bullish crossover or positive histogram
-- Price near lower Bollinger Band
+**This software is for educational purposes only.**
 
-### Exit Conditions (SELL)
-- Stop loss hit (5% below entry)
-- Trailing stop hit (3% below highest price)
-- Take profit target reached (2% gain)
-- RSI overbought (70) + MACD bearish crossover
+- ✅ Always start with paper trading
+- ✅ Never invest money you can't afford to lose
+- ✅ Past performance doesn't guarantee future results
+- ❌ The authors are not responsible for any financial losses
 
-## Risk Management
+---
 
-Built-in safety features:
+## 🆘 Need Help?
 
-1. **Circuit Breaker**: Trading halts if daily loss exceeds 2%
-2. **PDT Compliance**: Limits day trades for accounts under $25k
-3. **Position Sizing**: Max 10% of portfolio per position
-4. **Stop-Losses**: Required for every trade
-5. **Paper Mode Flag**: Checked at multiple levels
+- 📖 [View Documentation](https://github.com/HackingPain/trading-bot/wiki)
+- 🐛 [Report a Bug](https://github.com/HackingPain/trading-bot/issues)
+- 💬 [Ask a Question](https://github.com/HackingPain/trading-bot/discussions)
 
-## Running Tests
+---
 
-```bash
-# Run all tests
-pytest tests/
+## 📄 License
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
+MIT License - Free to use, modify, and distribute.
 
-# Run specific test file
-pytest tests/test_risk_manager.py -v
-```
+---
 
-## Live Trading
-
-⚠️ **WARNING**: Live trading involves real financial risk.
-
-To enable live trading:
-
-1. Set `paper_mode: false` in settings.yaml
-2. Update Alpaca URL to production: `https://api.alpaca.markets`
-3. Set environment variable: `CONFIRM_LIVE_TRADING=yes`
-4. Double-check all risk parameters
-
-```bash
-CONFIRM_LIVE_TRADING=yes python -m src.bot
-```
-
-## API Reference
-
-### Adding a New Strategy
-
-```python
-from src.strategies.base import Strategy, Signal, ExitSignal
-
-class MyStrategy(Strategy):
-    def generate_signals(self, market_data, positions):
-        signals = []
-        # Your logic here
-        return signals
-
-    def should_exit(self, position, market_data):
-        # Your exit logic here
-        return None  # or ExitSignal
-```
-
-### Adding a New Broker
-
-```python
-from src.execution.broker import Broker
-
-class MyBroker(Broker):
-    def get_account(self):
-        # Implementation
-        pass
-
-    def submit_order(self, order):
-        # Implementation
-        pass
-    # ... other abstract methods
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**"Alpaca API credentials not configured"**
-- Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` environment variables
-
-**"Circuit breaker triggered"**
-- Daily loss limit reached; trading halts until next day
-- Check logs for details
-
-**"PDT rule violation"**
-- Account under $25k with too many day trades
-- Reduce `max_daily_trades` in settings
-
-**Database errors**
-- Delete `data/trading_bot.db` to reset
-- Ensure `data/` directory exists
-
-### Logs
-
-Check logs for detailed information:
-```bash
-tail -f logs/trading_bot.log
-```
-
-## Disclaimer
-
-This software is for educational purposes only. Trading stocks involves substantial risk of loss. Past performance is not indicative of future results. Always paper trade first and never invest more than you can afford to lose.
-
-## License
-
-MIT License - See LICENSE file for details.
+<p align="center">
+Made with ❤️ for algorithmic trading enthusiasts
+</p>
