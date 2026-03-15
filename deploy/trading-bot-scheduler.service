@@ -1,0 +1,21 @@
+[Unit]
+Description=Trading Bot Scheduler (Market Hours Only)
+Documentation=https://github.com/HackingPain/trading-bot
+After=network.target
+
+[Service]
+Type=oneshot
+User=tradingbot
+Group=tradingbot
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+
+# Run a single trading cycle
+ExecStart=/opt/trading-bot/venv/bin/python -m src.bot --once
+
+# Logging
+StandardOutput=append:/var/log/trading-bot/scheduler.log
+StandardError=append:/var/log/trading-bot/scheduler-error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Run Trading Bot Every 5 Minutes During Market Hours
+Documentation=https://github.com/HackingPain/trading-bot
+
+[Timer]
+# Run every 5 minutes
+OnCalendar=*:0/5
+# Only during US market hours (9:30 AM - 4:00 PM ET)
+# Note: systemd doesn't support market hours natively,
+# the bot itself checks market hours
+Persistent=true
+Unit=trading-bot-scheduler.service
+
+[Install]
+WantedBy=timers.target

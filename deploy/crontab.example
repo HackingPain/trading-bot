@@ -1,0 +1,27 @@
+# Trading Bot Cron Jobs
+# Copy to /etc/cron.d/trading-bot or add to user's crontab
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+TRADING_BOT_DIR=/opt/trading-bot
+
+# Run trading bot every 5 minutes during market hours (9:30 AM - 4:00 PM ET)
+# Note: Adjust times based on your timezone. These assume server is in ET.
+# The bot will skip if market is closed.
+
+# Run trading cycle every 5 minutes from 9:30 AM to 3:55 PM ET (Mon-Fri)
+30-59 9 * * 1-5 tradingbot cd $TRADING_BOT_DIR && ./venv/bin/python -m src.bot --once >> /var/log/trading-bot/cron.log 2>&1
+0-55/5 10-15 * * 1-5 tradingbot cd $TRADING_BOT_DIR && ./venv/bin/python -m src.bot --once >> /var/log/trading-bot/cron.log 2>&1
+
+# Daily summary report at 4:30 PM ET (after market close)
+30 16 * * 1-5 tradingbot cd $TRADING_BOT_DIR && ./venv/bin/python -m src.cli.daily_summary >> /var/log/trading-bot/summary.log 2>&1
+
+# Weekly performance report on Sunday at 6 PM
+0 18 * * 0 tradingbot cd $TRADING_BOT_DIR && ./venv/bin/python -m src.cli.weekly_report >> /var/log/trading-bot/weekly.log 2>&1
+
+# Log rotation daily at midnight
+0 0 * * * root /usr/sbin/logrotate /etc/logrotate.d/trading-bot
+
+# Database backup daily at 1 AM
+0 1 * * * tradingbot cd $TRADING_BOT_DIR && ./scripts/backup_db.sh >> /var/log/trading-bot/backup.log 2>&1
