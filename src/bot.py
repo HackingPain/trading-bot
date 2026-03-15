@@ -31,7 +31,7 @@ from .database.models import (
     init_db,
     get_db_session,
 )
-from .execution.broker import AlpacaBroker, Broker, Order, OrderSide as BrokerOrderSide, OrderType
+from .execution.broker import AlpacaBroker, Broker, Order, OrderSide as BrokerOrderSide, OrderType, TimeInForce
 from .execution.sim_broker import SimulatedBroker, SimulatedBrokerConfig
 from .notifications.alerts import NotificationManager
 from .risk.risk_manager import AccountInfo, PositionRisk, RiskManager
@@ -695,6 +695,98 @@ class TradingBot:
             was_executed=was_executed,
         )
 
+    def _submit_bracket_stops(
+        self,
+        symbol: str,
+        quantity: float,
+        stop_loss_price: float,
+        take_profit_price: float,
+    ) -> None:
+        """Submit broker-side stop loss and take profit orders.
+
+        These orders live at the broker, so they execute even if the bot
+        crashes or loses connectivity. This is critical for live trading.
+        In paper/simulated mode these are still submitted for consistency,
+        but the local exit checks will usually fire first.
+        """
+        # Stop loss order (GTC so it survives overnight)
+        try:
+            stop_order = Order(
+                symbol=symbol,
+                side=BrokerOrderSide.SELL,
+                quantity=quantity,
+                order_type=OrderType.STOP,
+                stop_price=stop_loss_price,
+                time_in_force=TimeInForce.GTC,
+            )
+            result = self.broker.submit_order(stop_order)
+            if result.success:
+                self._track_order(
+                    order_id=result.order_id,
+                    symbol=symbol,
+                    side="sell",
+                    quantity=quantity,
+                    order_type="stop",
+                    price=stop_loss_price,
+                )
+                logger.info(f"Broker-side stop loss placed for {symbol} at ${stop_loss_price:.2f}")
+            else:
+                logger.warning(
+                    f"Failed to place broker-side stop for {symbol}: {result.message}. "
+                    f"Local stop at ${stop_loss_price:.2f} still active."
+                )
+        except Exception as e:
+            logger.warning(f"Could not place broker-side stop for {symbol}: {e}")
+
+        # Take profit limit order (GTC)
+        try:
+            tp_order = Order(
+                symbol=symbol,
+                side=BrokerOrderSide.SELL,
+                quantity=quantity,
+                order_type=OrderType.LIMIT,
+                limit_price=take_profit_price,
+                time_in_force=TimeInForce.GTC,
+            )
+            result = self.broker.submit_order(tp_order)
+            if result.success:
+                self._track_order(
+                    order_id=result.order_id,
+                    symbol=symbol,
+                    side="sell",
+                    quantity=quantity,
+                    order_type="limit",
+                    price=take_profit_price,
+                )
+                logger.info(f"Broker-side take profit placed for {symbol} at ${take_profit_price:.2f}")
+            else:
+                logger.warning(
+                    f"Failed to place broker-side take profit for {symbol}: {result.message}"
+                )
+        except Exception as e:
+            logger.warning(f"Could not place broker-side take profit for {symbol}: {e}")
+
+    def _cancel_bracket_stops(self, symbol: str) -> None:
+        """Cancel broker-side stop and take-profit orders for a symbol.
+
+        Must be called before submitting a local exit order, otherwise the
+        broker-side stops become naked sells on a closed position.
+        """
+        try:
+            open_orders = self.broker.get_open_orders()
+            for order_info in open_orders:
+                if order_info.get("symbol") == symbol and order_info.get("side") == "sell":
+                    order_id = order_info["id"]
+                    if self.broker.cancel_order(order_id):
+                        logger.info(f"Cancelled bracket order {order_id} for {symbol}")
+                        self.audit.log_order_cancelled(
+                            order_id=order_id,
+                            symbol=symbol,
+                            reason="local_exit_triggered",
+                        )
+        except Exception as e:
+            logger.warning(f"Failed to cancel bracket stops for {symbol}: {e}")
+
     def _track_order(self, order_id: str, symbol: str, side: str, quantity: float,
                      order_type: str, price: Optional[float] = None) -> None:
         """Track order in database for lifecycle management (1.4)."""
@@ -809,8 +901,10 @@ class TradingBot:
             logger.info(f"Skipping exit for {symbol}: order already in-flight")
             return
 
-        # Use broker's close_position to handle fractional shares correctly (Fix #3)
-        # This ensures the entire position is closed, not just int(quantity)
+        # Cancel any broker-side stop/take-profit orders for this symbol
+        # before submitting the exit, to avoid naked sell orders after close
+        self._cancel_bracket_stops(symbol)
+
         sell_qty = position.quantity
 
         # Create sell order
@@ -1034,6 +1128,11 @@ class TradingBot:
                 trailing_stop=fill_price * (1 - self.risk_manager.config.trailing_stop_pct),
                 take_profit=take_profit,
             )
+
+            # Submit broker-side stop loss order for crash protection.
+            # If the bot goes down, this stop order lives at the broker
+            # and will still execute to limit losses.
+            self._submit_bracket_stops(symbol, shares, stop_loss, take_profit)
 
             # Track day trade
             self.risk_manager.record_trade()
