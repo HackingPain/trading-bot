@@ -214,6 +214,51 @@ See the file itself for all available options with inline documentation.
 
 ---
 
+## Live Trading
+
+The bot runs in paper trading mode by default. To trade with real money:
+
+**1. Run paper mode first.** Watch it for at least a few weeks. Check the dashboard, review the audit log at `logs/audit.jsonl`, and make sure the strategies, risk limits, and position sizing behave the way you expect.
+
+**2. Switch to live mode.** Two changes are required in `config/settings.yaml`:
+
+```yaml
+trading:
+  paper_mode: false
+
+broker:
+  type: alpaca            # Must use a real broker, not simulated
+```
+
+**3. Set your live API keys.** In your `.env` file, replace the paper trading keys with your Alpaca live keys. The bot will automatically use the live API endpoint instead of the paper endpoint.
+
+**4. Set the confirmation environment variable.** The bot refuses to start in live mode without this:
+
+```bash
+export CONFIRM_LIVE_TRADING=yes
+```
+
+**5. Start the bot.**
+
+```bash
+make dev
+```
+
+### What happens in live mode
+
+- The bot places real orders through the Alpaca live API
+- After every entry, broker-side GTC stop loss and take profit orders are placed automatically. These execute even if the bot crashes or loses connectivity.
+- When the bot exits a position through its own logic (trailing stop, signal exit, etc.), it cancels the broker-side bracket orders first to prevent orphaned sells.
+- The circuit breaker halts all trading if your account equity drops more than 2% intraday (configurable via `risk.max_daily_loss_pct`)
+- If the bot encounters 10 consecutive errors, it stops itself and sends a critical notification
+- All decisions are logged to `logs/audit.jsonl` for post-trade review
+
+### Switching back to paper mode
+
+Set `paper_mode: true` in the config. No other changes needed. The `CONFIRM_LIVE_TRADING` variable is ignored in paper mode.
+
+---
+
 ## Disclaimer
 
 **This software is for educational and research purposes only.**
